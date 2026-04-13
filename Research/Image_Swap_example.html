@@ -2,36 +2,87 @@
 <html>
 <head>
     <style>
-        .btn-group button {
-            background-color: #007bff; /* Research Blue */
-            color: white;
-            padding: 10px 24px;
-            cursor: pointer;
-            border: none;
-            border-radius: 4px;
-            margin: 5px;
+        body { font-family: sans-serif; padding: 20px; color: #333; }
+        .control-panel { 
+            background: #f8f9fa; 
+            padding: 20px; 
+            border-radius: 8px; 
+            border: 1px solid #ddd;
+            margin-bottom: 20px;
+            display: flex;
+            gap: 30px;
+            flex-wrap: wrap;
         }
-        .btn-group button:hover { background-color: #0056b3; }
-        iframe { width: 100%; height: 600px; border: 1px solid #ddd; margin-top: 20px; }
+        .slider-group { display: flex; flex-direction: column; min-width: 200px; }
+        .slider-group label { font-weight: bold; margin-bottom: 8px; }
+        .value-display { color: #007bff; font-family: monospace; font-size: 1.1em; }
+        iframe { width: 100%; height: 700px; border: 1px solid #ddd; border-radius: 4px; }
+        span.unit { font-size: 0.8em; color: #666; }
     </style>
 </head>
 <body>
 
-    <h2>Research Data: Device Characterization</h2>
-    <p>Select a condition to view the interactive 3D plot:</p>
+    <h2>Research Data: Core Loss Interactive Explorer</h2>
+    
+	<div class="control-panel">
+		<div class="slider-group">
+			<label>Temperature: <span id="T_val" class="value-display">25</span> ºC</label>
+			<input type="range" id="T_slider" min="25" max="90" value="25" oninput="snapT(this)">
+		</div>
 
-    <div class="btn-group">
-        <button onclick="switchPlot('https://asierarrutiromero.github.io/Research/Media/N87_data.html')">Condition: 300K</button>
-        <button onclick="switchPlot('https://asierarrutiromero.github.io/Research/Media/core_loss_3d.html')">Condition: 400K</button>
-    </div>
+		<div class="slider-group">
+			<label>DC Bias (H): <span id="H_val" class="value-display">0</span> A/m</label>
+			<input type="range" id="H_slider" min="0" max="60" value="0" oninput="snapH(this)">
+		</div>
 
-    <iframe id="displayFrame" src="https://asierarrutiromero.github.io/Research/Media/N87_data.html"></iframe>
+		<div class="slider-group">
+			<label>Duty Cycle (D): <span id="D_val" class="value-display">0.5</span></label>
+			<input type="range" id="D_slider" min="0.1" max="0.9" step="0.1" value="0.5" oninput="snapD(this)">
+		</div>
+	</div>
 
-    <script>
-        function switchPlot(filePath) {
-            document.getElementById('displayFrame').src = filePath;
-        }
-    </script>
+	<script>
+		// 1. Define your experimental datasets
+		const allowed_T = [25, 50, 70, 90];
+		const allowed_H = [0, 15, 30, 45, 60];
+		const allowed_D = [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9];
+
+		// 2. The snapping engine
+		function getClosest(val, array) {
+			return array.reduce((prev, curr) => 
+				Math.abs(curr - val) < Math.abs(prev - val) ? curr : prev
+			);
+		}
+
+		// Individual snap functions to update the slider position visually
+		function snapT(el) { el.value = getClosest(el.value, allowed_T); updatePlot(); }
+		function snapH(el) { el.value = getClosest(el.value, allowed_H); updatePlot(); }
+		function snapD(el) { el.value = getClosest(parseFloat(el.value), allowed_D); updatePlot(); }
+
+		function updatePlot() {
+			const T = document.getElementById('T_slider').value;
+			const H = document.getElementById('H_slider').value;
+			// Ensure D is formatted to one decimal place for the filename
+			const D = parseFloat(document.getElementById('D_slider').value).toFixed(1);
+
+			// Update Text Labels
+			document.getElementById('T_val').innerText = T;
+			document.getElementById('H_val').innerText = H;
+			document.getElementById('D_val').innerText = D;
+
+			// Construct Path
+			const baseURL = "https://asierarrutiromero.github.io/Research/Media/";
+			const fileName = `N87_T${T}_H${H}_D${D}.html`;
+			
+			const newSrc = baseURL + fileName;
+			const frame = document.getElementById('displayFrame');
+			if (frame.src !== newSrc) {
+				frame.src = newSrc;
+			}
+		}
+
+		window.onload = updatePlot;
+	</script>
 
 </body>
 </html>
