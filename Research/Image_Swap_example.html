@@ -40,7 +40,14 @@
 			<input type="range" id="D_slider" min="0.1" max="0.9" step="0.1" value="0.5" oninput="snapD(this)">
 		</div>
 	</div>
-
+	
+	<div style="background: #eee; padding: 10px; margin-bottom: 10px; border-radius: 4px;">
+		<strong>Current URL:</strong> 
+		<span id="url_debug" style="color: #d9534f; font-family: monospace; word-break: break-all;"></span>
+	</div>
+	
+	<iframe id="displayFrame" src=""></iframe>
+	
 	<script>
 		// 1. Define your experimental datasets
 		const allowed_T = [25, 50, 70, 90];
@@ -72,9 +79,12 @@
 
 			// Construct Path
 			const baseURL = "https://asierarrutiromero.github.io/Research/Media/";
-			const fileName = `N87_T${T}_H${H}_D${D}.html`;
+			const fileName = `N87_T${T}_H${H}D${D}.html`;
 			
 			const newSrc = baseURL + fileName;
+			
+			document.getElementById('url_debug').innerText = newSrc;
+			
 			const frame = document.getElementById('displayFrame');
 			if (frame.src !== newSrc) {
 				frame.src = newSrc;
