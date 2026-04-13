@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <style>
+        .btn-group button {
+            background-color: #007bff; /* Research Blue */
+            color: white;
+            padding: 10px 24px;
+            cursor: pointer;
+            border: none;
+            border-radius: 4px;
+            margin: 5px;
+        }
+        .btn-group button:hover { background-color: #0056b3; }
+        iframe { width: 100%; height: 600px; border: 1px solid #ddd; margin-top: 20px; }
+    </style>
+</head>
+<body>
+
+    <h2>Research Data: Device Characterization</h2>
+    <p>Select a condition to view the interactive 3D plot:</p>
+
+    <div class="btn-group">
+        <button onclick="switchPlot('https://asierarrutiromero.github.io/Research/Media/N87_data.html')">Condition: 300K</button>
+        <button onclick="switchPlot('https://asierarrutiromero.github.io/Research/Media/core_loss_3d.html')">Condition: 400K</button>
+    </div>
+
+    <iframe id="displayFrame" src="https://asierarrutiromero.github.io/Research/Media/N87_data.html"></iframe>
+
+    <script>
+        function switchPlot(filePath) {
+            document.getElementById('displayFrame').src = filePath;
+        }
+    </script>
+
+</body>
+</html>
