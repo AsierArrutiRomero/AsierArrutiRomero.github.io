@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Core Loss Explorer</title>
+    <style>
+        /* --- 1. THE LOOK (CSS) --- */
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; padding: 30px; background-color: #f4f7f6; }
+        
+        .control-panel { 
+            background: white; 
+            padding: 25px; 
+            border-radius: 12px; 
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+            margin-bottom: 25px;
+            display: flex;
+            gap: 40px;
+            flex-wrap: wrap;
+        }
+
+        .slider-group { display: flex; flex-direction: column; min-width: 220px; }
+        .slider-group label { font-weight: bold; margin-bottom: 10px; color: #444; }
+        .value-display { color: #007bff; font-weight: bold; font-size: 1.2em; }
+
+        /* Container for the plot + spinner */
+        .plot-container {
+            position: relative;
+            width: 100%;
+            height: 700px;
+            background: white;
+            border-radius: 12px;
+            overflow: hidden;
+            border: 1px solid #ddd;
+        }
+
+        /* The Loading Spinner */
+        .loader {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            border: 6px solid #f3f3f3;
+            border-top: 6px solid #007bff;
+            border-radius: 50%;
+            width: 50px;
+            height: 50px;
+            animation: spin 1s linear infinite;
+            display: none; /* Hidden by default */
+        }
+
+        @keyframes spin {
+            0% { transform: translate(-50%, -50%) rotate(0deg); }
+            100% { transform: translate(-50%, -50%) rotate(360deg); }
+        }
+
+        iframe { width: 100%; height: 100%; border: none; }
+
+        .debug-bar {
+            font-size: 0.8em;
+            color: #888;
+            margin-bottom: 10px;
+            font-family: monospace;
+        }
+    </style>
+</head>
+<body>
+
+    <h2>N87 Magnetic Core Loss Characterization</h2>
+
+    <div class="control-panel">
+        <div class="slider-group">
+            <label>Temperature: <span id="T_val" class="value-display">25</span> ºC</label>
+            <input type="range" id="T_slider" min="25" max="90" value="25" oninput="snapT(this)">
+        </div>
+
+        <div class="slider-group">
+            <label>DC Bias (H): <span id="H_val" class="value-display">0</span> A/m</label>
+            <input type="range" id="H_slider" min="0" max="60" value="0" oninput="snapH(this)">
+        </div>
+
+        <div class="slider-group">
+            <label>Duty Cycle (D): <span id="D_val" class="value-display">0.5</span></label>
+            <input type="range" id="D_slider" min="0.1" max="0.9" step="0.1" value="0.5" oninput="snapD(this)">
+        </div>
+    </div>
+
+    <div class="debug-bar">
+        Target File: <span id="url_debug"></span>
+    </div>
+
+    <div class="plot-container">
+        <div class="loader" id="loadingSpinner"></div>
+        <iframe id="displayFrame" src="" onload="hideLoader()"></iframe>
+    </div>
+
+    <script>
+        /* --- 2. THE LOGIC (JavaScript) --- */
+
+        // These MUST match the values in your Python lists exactly
+        const allowed_T = [25, 50, 70, 90];
+        const allowed_H = [0, 15, 30, 45, 60];
+        const allowed_D = [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9];
+
+        // This finds the closest valid measurement point
+        function getClosest(val, array) {
+            return array.reduce((prev, curr) => 
+                Math.abs(curr - val) < Math.abs(prev - val) ? curr : prev
+            );
+        }
+
+        // Snapping functions
+        function snapT(el) { el.value = getClosest(el.value, allowed_T); updatePlot(); }
+        function snapH(el) { el.value = getClosest(el.value, allowed_H); updatePlot(); }
+        function snapD(el) { el.value = getClosest(parseFloat(el.value), allowed_D); updatePlot(); }
+
+        function updatePlot() {
+            // Show spinner because a new file is loading
+            document.getElementById('loadingSpinner').style.display = "block";
+
+            const T = document.getElementById('T_slider').value;
+            const H = document.getElementById('H_slider').value;
+            const D = parseFloat(document.getElementById('D_slider').value).toFixed(1);
+
+            // Update the numbers the user sees
+            document.getElementById('T_val').innerText = T;
+            document.getElementById('H_val').innerText = H;
+            document.getElementById('D_val').innerText = D;
+
+            // SET YOUR FOLDER PATH HERE
+            // If your files are in a folder called 'Media' on GitHub:
+            const baseURL = "https://asierarrutiromero.github.io/Research/Media/";
+            const fileName = `N87_T${T}_H${H}_D${D}.html`;
+            
+            const newSrc = baseURL + fileName;
+            document.getElementById('url_debug').innerText = newSrc;
+            
+            // Only update the frame if the file actually changed
+            const frame = document.getElementById('displayFrame');
+            if (frame.src !== newSrc) {
+                frame.src = newSrc;
+            }
+        }
+
+        // Hide spinner when the iframe is done
+        function hideLoader() {
+            document.getElementById('loadingSpinner').style.display = "none";
+        }
+
+        // Run this once when page opens to load the first plot
+        window.onload = updatePlot;
+    </script>
+
+</body>
+</html>

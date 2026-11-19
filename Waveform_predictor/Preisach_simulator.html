@@ -1,0 +1,1309 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Discrete Preisach Fingerprint &amp; B-H Loop Predictor</title>
+  <style>
+    :root {
+      --bg: #f4f6f9;
+      --card: #ffffff;
+      --border: #dce2ec;
+      --text: #1b2432;
+      --muted: #5c6b80;
+      --accent: #2563eb;
+      --accent-hover: #1d4ed8;
+      --meas: #16a34a;
+      --danger: #dc2626;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+    }
+    header {
+      background: var(--card);
+      border-bottom: 1px solid var(--border);
+      padding: 14px 24px;
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+    }
+    .title-block h1 {
+      margin: 0;
+      font-size: 1.15rem;
+      font-weight: 700;
+    }
+    .title-block p {
+      margin: 2px 0 0;
+      font-size: 0.84rem;
+      color: var(--muted);
+    }
+    .toolbar {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 10px;
+    }
+    .btn {
+      background: var(--accent);
+      color: #fff;
+      border: none;
+      border-radius: 6px;
+      padding: 8px 14px;
+      font-size: 0.85rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: background 0.15s;
+    }
+    .btn:hover { background: var(--accent-hover); }
+    .btn.secondary {
+      background: #eef2f8;
+      color: var(--text);
+      border: 1px solid var(--border);
+    }
+    .btn.secondary:hover { background: #e2e8f2; }
+    .btn.unlock {
+      background: #fef3c7;
+      color: #92400e;
+      border: 1px solid #f59e0b;
+      padding: 5px 11px;
+      font-size: 0.8rem;
+    }
+    .btn.unlock:hover { background: #fde68a; }
+    .status-pill {
+      font-size: 0.8rem;
+      padding: 5px 10px;
+      border-radius: 999px;
+      background: #eef2f8;
+      color: var(--muted);
+      font-weight: 500;
+    }
+    main {
+      max-width: 1440px;
+      margin: 18px auto;
+      padding: 0 18px 24px;
+      display: grid;
+      grid-template-columns: 1fr 1.12fr;
+      gap: 18px;
+    }
+    @media (max-width: 980px) {
+      main { grid-template-columns: 1fr; }
+    }
+    .card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 16px 18px;
+      box-shadow: 0 2px 8px rgba(15, 23, 42, 0.04);
+      display: flex;
+      flex-direction: column;
+    }
+    .card-header {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      margin-bottom: 10px;
+    }
+    .card-header h2 {
+      margin: 0;
+      font-size: 1rem;
+      font-weight: 700;
+    }
+    .sub-controls {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      font-size: 0.82rem;
+      color: var(--muted);
+    }
+    .sub-controls label {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      cursor: pointer;
+    }
+    .waveform-bar {
+      display: none;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      background: #f0fdf4;
+      border: 1px solid #bbf7d0;
+      border-radius: 7px;
+      padding: 7px 10px;
+      margin-bottom: 10px;
+      font-size: 0.82rem;
+    }
+    .waveform-bar.active {
+      display: flex;
+    }
+    .waveform-bar-left {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 8px;
+    }
+    .waveform-bar select {
+      padding: 4px 8px;
+      border: 1px solid var(--border);
+      border-radius: 5px;
+      background: #fff;
+      color: var(--text);
+      font-size: 0.82rem;
+      font-weight: 600;
+    }
+    .fit-tag {
+      font-weight: 600;
+      color: #166534;
+      font-variant-numeric: tabular-nums;
+    }
+    .legend-inline {
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
+      font-size: 0.78rem;
+      color: var(--muted);
+    }
+    .legend-swatch {
+      display: inline-block;
+      width: 12px;
+      height: 3px;
+      border-radius: 2px;
+      vertical-align: middle;
+      margin-right: 4px;
+    }
+    .canvas-wrap {
+      position: relative;
+      width: 100%;
+      aspect-ratio: 1 / 1;
+      max-height: 540px;
+      margin: 0 auto;
+    }
+    canvas {
+      width: 100%;
+      height: 100%;
+      display: block;
+      border-radius: 6px;
+      background: #fafbfd;
+      border: 1px solid #e5eaf2;
+    }
+    #tooltip {
+      position: absolute;
+      pointer-events: none;
+      background: rgba(17, 24, 39, 0.92);
+      color: #f9fafb;
+      font-size: 0.78rem;
+      line-height: 1.4;
+      padding: 7px 10px;
+      border-radius: 6px;
+      white-space: nowrap;
+      display: none;
+      z-index: 10;
+    }
+    .controls-panel {
+      margin-top: 14px;
+      padding-top: 12px;
+      border-top: 1px solid var(--border);
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+    .controls-panel.locked {
+      opacity: 0.62;
+    }
+    .slider-row {
+      display: grid;
+      grid-template-columns: 98px 1fr 84px;
+      align-items: center;
+      gap: 10px;
+    }
+    .slider-row label {
+      font-size: 0.85rem;
+      font-weight: 600;
+    }
+    .slider-row input[type="range"] {
+      width: 100%;
+      accent-color: var(--accent);
+      cursor: pointer;
+    }
+    .slider-row input[type="range"]:disabled {
+      cursor: not-allowed;
+    }
+    .slider-row input[type="number"] {
+      width: 100%;
+      padding: 5px 7px;
+      border: 1px solid var(--border);
+      border-radius: 5px;
+      font-size: 0.85rem;
+      text-align: right;
+    }
+    .slider-row input[type="number"]:disabled {
+      background: #f1f5f9;
+      cursor: not-allowed;
+    }
+    .preset-row {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 8px;
+      margin-top: 2px;
+    }
+    .preset-btn {
+      background: #f1f5f9;
+      border: 1px solid var(--border);
+      border-radius: 5px;
+      padding: 4px 10px;
+      font-size: 0.78rem;
+      font-weight: 600;
+      color: var(--text);
+      cursor: pointer;
+    }
+    .preset-btn:hover:not(:disabled) { background: #e2e8f0; }
+    .preset-btn:disabled {
+      cursor: not-allowed;
+      opacity: 0.6;
+    }
+    .metrics {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 8px;
+      margin-top: 12px;
+    }
+    .metric-box {
+      background: #f8fafc;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 8px 10px;
+      text-align: center;
+    }
+    .metric-box .k {
+      font-size: 0.74rem;
+      color: var(--muted);
+      font-weight: 600;
+    }
+    .metric-box .v {
+      font-size: 0.95rem;
+      font-weight: 700;
+      margin-top: 2px;
+    }
+    .drop-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(37, 99, 235, 0.14);
+      border: 3px dashed var(--accent);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      font-size: 1.25rem;
+      font-weight: 700;
+      color: var(--accent);
+      z-index: 100;
+      pointer-events: none;
+    }
+  </style>
+</head>
+<body>
+  <div class="drop-overlay" id="dropOverlay">Drop Material JSON or B-H Waveforms JSON to load</div>
+
+  <header>
+    <div class="title-block">
+      <h1 id="pageTitle">Discrete Preisach Fingerprint &amp; Waveform Predictor</h1>
+      <p id="pageSubtitle">Ungapped model: B = &mu;&#8320;(H + M) &bull; Adjust H<sub>min</sub> and H<sub>max</sub> to simulate any closed B-H cycle</p>
+    </div>
+    <div class="toolbar">
+      <span class="status-pill" id="statusPill">Loading grid...</span>
+      <input type="file" id="fileInput" accept=".json" style="display:none" />
+      <button class="btn" id="btnLoadMat">Load Material JSON</button>
+      <input type="file" id="bhFileInput" accept=".json" style="display:none" />
+      <button class="btn secondary" id="btnLoadBh">Upload B-H Waveforms</button>
+      <button class="btn secondary" id="btnExportCsv">Download B-H CSV</button>
+    </div>
+  </header>
+
+  <main>
+    <!-- Left Card: Discrete Preisach Density Map -->
+    <section class="card">
+      <div class="card-header">
+        <h2>Material Hysteron Density &rho;<sub>ij</sub> [(A/m)<sup>&minus;1</sup>]</h2>
+        <div class="sub-controls">
+          <label><input type="checkbox" id="chkGrid" checked /> Grid lines</label>
+        </div>
+      </div>
+      <div class="canvas-wrap">
+        <canvas id="mapCanvas"></canvas>
+        <div id="tooltip"></div>
+      </div>
+    </section>
+
+    <!-- Right Card: Custom [H_min, H_max] Waveform Predictor -->
+    <section class="card">
+      <div class="card-header">
+        <h2>Predicted B-H Loop</h2>
+        <div class="sub-controls">
+          <span class="legend-inline" id="bhLegend" style="display:none;">
+            <span><i class="legend-swatch" style="background:#2563eb;"></i>Predicted</span>
+            <span><i class="legend-swatch" style="background:#16a34a;"></i>Measured</span>
+          </span>
+          <label id="lockAxesLabel"><input type="checkbox" id="chkLockAxes" checked /> Lock axes to full range</label>
+        </div>
+      </div>
+
+      <!-- Uploaded Waveforms Lock Bar -->
+      <div class="waveform-bar" id="waveformBar">
+        <div class="waveform-bar-left">
+          <label for="bhLoopSelect"><strong>Waveform:</strong></label>
+          <select id="bhLoopSelect"></select>
+          <span class="fit-tag" id="bhFitBadge"></span>
+        </div>
+        <button class="btn unlock" id="btnFreeSliders" type="button">Back to Free Sliders</button>
+      </div>
+
+      <div class="canvas-wrap">
+        <canvas id="loopCanvas"></canvas>
+      </div>
+
+      <div class="controls-panel" id="controlsPanel">
+        <div class="slider-row">
+          <label for="slHmin">H<sub>min</sub> [A/m]</label>
+          <input type="range" id="slHmin" step="0.5" />
+          <input type="number" id="numHmin" step="1" />
+        </div>
+        <div class="slider-row">
+          <label for="slHmax">H<sub>max</sub> [A/m]</label>
+          <input type="range" id="slHmax" step="0.5" />
+          <input type="number" id="numHmax" step="1" />
+        </div>
+        <div class="preset-row">
+          <button class="preset-btn" data-preset="sym100">Full Loop (&plusmn;100%)</button>
+          <button class="preset-btn" data-preset="sym50">Half Loop (&plusmn;50%)</button>
+          <button class="preset-btn" data-preset="sym25">Minor Loop (&plusmn;25%)</button>
+          <button class="preset-btn" data-preset="bias">DC-Biased Minor</button>
+        </div>
+      </div>
+
+      <div class="metrics">
+        <div class="metric-box"><div class="k">B<sub>min</sub></div><div class="v" id="mBmin">—</div></div>
+        <div class="metric-box"><div class="k">B<sub>max</sub></div><div class="v" id="mBmax">—</div></div>
+        <div class="metric-box"><div class="k">&Delta;B (pk-pk)</div><div class="v" id="mDb">—</div></div>
+        <div class="metric-box"><div class="k">Loss (&oint;H dB)</div><div class="v" id="mLoss">—</div></div>
+      </div>
+    </section>
+  </main>
+
+  <script>
+    const MU0_DEFAULT = 4 * Math.PI * 1e-7;
+    let model = null;
+    let userLoadedMaterial = false;
+    let bhDataset = null; // { loops, lockedHLim, lockedBLim } when waveforms are uploaded
+    let selectedBhIdx = 0;
+    let lastPred = { H: [], B: [] };
+    let hoveredCell = null;
+
+    const mapCanvas     = document.getElementById('mapCanvas');
+    const loopCanvas    = document.getElementById('loopCanvas');
+    const tooltip       = document.getElementById('tooltip');
+    const slHmin        = document.getElementById('slHmin');
+    const slHmax        = document.getElementById('slHmax');
+    const numHmin       = document.getElementById('numHmin');
+    const numHmax       = document.getElementById('numHmax');
+    const chkGrid       = document.getElementById('chkGrid');
+    const chkLock       = document.getElementById('chkLockAxes');
+    const controlsPanel = document.getElementById('controlsPanel');
+    const waveformBar   = document.getElementById('waveformBar');
+    const bhLoopSelect  = document.getElementById('bhLoopSelect');
+    const bhLegend      = document.getElementById('bhLegend');
+    const bhFitBadge    = document.getElementById('bhFitBadge');
+
+    // Built-in fallback model in case ./preisach_grid.json is not present yet
+    function buildDemoModel() {
+      const g = [-480, -350, -250, -190, -150, -120, -92, -75, -62, 0, 62, 75, 92, 120, 150, 190, 250, 350, 480];
+      const Nc = g.length - 1;
+      const W_Am = Array.from({ length: Nc }, () => Array(Nc).fill(0));
+      for (let i = 0; i < Nc; i++) {
+        for (let j = 0; j <= i; j++) {
+          const a = 0.5 * (g[i] + g[i + 1]);
+          const b = 0.5 * (g[j] + g[j + 1]);
+          const Hc = 0.5 * (a - b);
+          const Hu = 0.5 * (a + b);
+          const dg_i = g[i + 1] - g[i];
+          const dg_j = g[j + 1] - g[j];
+          const area = (i === j) ? 0.5 * dg_i * dg_j : dg_i * dg_j;
+          const rhoHyst = 18.5 * Math.exp(-((Hc - 36) ** 2) / (2 * 34 ** 2) - (Hu ** 2) / (2 * 185 ** 2));
+          const rhoDiag = (i === j) ? 26.0 * Math.exp(-(Hu ** 2) / (2 * 240 ** 2)) : 0;
+          W_Am[i][j] = (rhoHyst + rhoDiag) * area;
+        }
+      }
+      return { material: 'Demo Ungapped Core (Load Material JSON)', mu0: MU0_DEFAULT, g, W_Am };
+    }
+
+    function normalizeModel(raw) {
+      if (!raw || !Array.isArray(raw.g) || raw.g.length < 2) {
+        throw new Error('Material JSON must contain threshold array "g".');
+      }
+      const g = raw.g.map(Number);
+      const Nc = g.length - 1;
+      const mu0 = Number(raw.mu0) || MU0_DEFAULT;
+
+      const Area = Array.from({ length: Nc }, (_, i) =>
+        Array.from({ length: Nc }, (_, j) => {
+          if (j > i) return 0;
+          const dgi = g[i + 1] - g[i];
+          const dgj = g[j + 1] - g[j];
+          return (i === j) ? 0.5 * dgi * dgj : dgi * dgj;
+        })
+      );
+
+      const hasW = Array.isArray(raw.W_Am) && raw.W_Am.length >= Nc;
+      const hasRho = Array.isArray(raw.rho_invAm) && raw.rho_invAm.length >= Nc;
+      if (!hasW && !hasRho) {
+        throw new Error('Material JSON must contain "W_Am" or "rho_invAm".');
+      }
+
+      const W_Am = Array.from({ length: Nc }, (_, i) =>
+        Array.from({ length: Nc }, (_, j) => {
+          if (j > i) return 0;
+          if (hasW && Array.isArray(raw.W_Am[i])) {
+            return Math.max(0, Number(raw.W_Am[i][j]) || 0);
+          }
+          const rhoVal = (Array.isArray(raw.rho_invAm[i]) ? Number(raw.rho_invAm[i][j]) : 0) || 0;
+          return Math.max(0, rhoVal * Area[i][j]);
+        })
+      );
+
+      const rho_invAm = Array.from({ length: Nc }, (_, i) =>
+        Array.from({ length: Nc }, (_, j) => {
+          if (j > i) return 0;
+          if (hasRho && Array.isArray(raw.rho_invAm[i]) && Number.isFinite(Number(raw.rho_invAm[i][j]))) {
+            return Math.max(0, Number(raw.rho_invAm[i][j]));
+          }
+          return Area[i][j] > 0 ? W_Am[i][j] / Area[i][j] : 0;
+        })
+      );
+
+      return {
+        material: raw.material || 'Exported Preisach Grid',
+        mu0,
+        g,
+        Nc,
+        W_Am,
+        Area,
+        rho_invAm
+      };
+    }
+
+    function normalizeBhDataset(raw) {
+      let loops = [];
+      if (Array.isArray(raw.loops) && raw.loops.length > 0) {
+        loops = raw.loops.map((lp, idx) => ({
+          id: lp.id || `loop_${idx + 1}`,
+          label: lp.label || lp.id || `Loop ${idx + 1}`,
+          H: (lp.H || lp.H_Am || []).map(Number),
+          B: (lp.B || lp.B_T || []).map(Number)
+        }));
+      } else if (Array.isArray(raw.H) && Array.isArray(raw.B)) {
+        loops = [{
+          id: raw.id || 'loop_1',
+          label: raw.label || 'Uploaded Waveform',
+          H: raw.H.map(Number),
+          B: raw.B.map(Number)
+        }];
+      }
+      loops = loops.filter(lp => lp.H.length >= 2 && lp.H.length === lp.B.length);
+      if (!loops.length) {
+        throw new Error('Waveforms JSON must contain "loops" with matching "H" and "B" arrays.');
+      }
+      return { loops };
+    }
+
+    function linspace(a, b, n) {
+      const out = new Float64Array(n);
+      const step = (b - a) / (n - 1);
+      for (let i = 0; i < n; i++) out[i] = a + i * step;
+      return out;
+    }
+
+    function runPreisachTrajectory(H_traj) {
+      const { g, Nc, W_Am, mu0 } = model;
+      const gMid = Array.from({ length: Nc }, (_, k) => 0.5 * (g[k] + g[k + 1]));
+      const S = Array.from({ length: Nc }, (_, i) =>
+        Array.from({ length: Nc }, (_, j) => {
+          if (j > i) return 0;
+          const s = gMid[i] + gMid[j];
+          if (s < -1e-6) return 1;
+          if (Math.abs(s) <= 1e-6) return 0;
+          return -1;
+        })
+      );
+
+      const B_traj = new Float64Array(H_traj.length);
+      const evalB = (Ht) => {
+        let M_t = 0;
+        for (let i = 0; i < Nc; i++) {
+          const Wi = W_Am[i];
+          const Si = S[i];
+          for (let j = 0; j <= i; j++) M_t += Wi[j] * Si[j];
+        }
+        return mu0 * (Ht + M_t);
+      };
+
+      B_traj[0] = evalB(H_traj[0]);
+      for (let t = 1; t < H_traj.length; t++) {
+        const Ht = H_traj[t];
+        if (Ht >= H_traj[t - 1]) {
+          for (let i = 0; i < Nc; i++) {
+            if (Ht >= g[i + 1]) {
+              for (let j = 0; j <= i; j++) S[i][j] = 1;
+            } else if (Ht > g[i]) {
+              const f = (Ht - g[i]) / (g[i + 1] - g[i]);
+              const val = -1 + 2 * f;
+              for (let j = 0; j <= i; j++) if (val > S[i][j]) S[i][j] = val;
+            }
+          }
+        } else {
+          for (let j = 0; j < Nc; j++) {
+            if (Ht <= g[j]) {
+              for (let i = j; i < Nc; i++) S[i][j] = -1;
+            } else if (Ht < g[j + 1]) {
+              const r = (g[j + 1] - Ht) / (g[j + 1] - g[j]);
+              const val = 1 - 2 * r;
+              for (let i = j; i < Nc; i++) if (val < S[i][j]) S[i][j] = val;
+            }
+          }
+        }
+        B_traj[t] = evalB(Ht);
+      }
+      return B_traj;
+    }
+
+    function predictCustomLoop(hmin, hmax) {
+      const seg1 = linspace(0, hmax, 120);
+      const seg2 = linspace(hmax, hmin, 220);
+      const seg3 = linspace(hmin, hmax, 250);
+      const seg4 = linspace(hmax, hmin, 250);
+
+      const H_traj = [];
+      for (let i = 0; i < seg1.length; i++) H_traj.push(seg1[i]);
+      for (let i = 1; i < seg2.length; i++) H_traj.push(seg2[i]);
+      const ssStart = H_traj.length - 1;
+      for (let i = 1; i < seg3.length; i++) H_traj.push(seg3[i]);
+      for (let i = 1; i < seg4.length; i++) H_traj.push(seg4[i]);
+
+      const B_traj = runPreisachTrajectory(H_traj);
+      return {
+        H: H_traj.slice(ssStart),
+        B: Array.from(B_traj.slice(ssStart))
+      };
+    }
+
+    function predictUploadedWaveform(measLoop) {
+      let hMin = Infinity, hMax = -Infinity;
+      for (const h of measLoop.H) {
+        if (h < hMin) hMin = h;
+        if (h > hMax) hMax = h;
+      }
+      const pre1 = linspace(0, hMax, 80);
+      const pre2 = linspace(hMax, hMin, 80);
+      const pre3 = linspace(hMin, measLoop.H[0], 40);
+
+      const H_traj = [];
+      for (let i = 0; i < pre1.length; i++) H_traj.push(pre1[i]);
+      for (let i = 1; i < pre2.length; i++) H_traj.push(pre2[i]);
+      for (let i = 1; i < pre3.length; i++) H_traj.push(pre3[i]);
+      const startIdx = H_traj.length - 1;
+      for (let i = 1; i < measLoop.H.length; i++) H_traj.push(measLoop.H[i]);
+
+      const B_traj = runPreisachTrajectory(H_traj);
+      const predB = Array.from(B_traj.slice(startIdx));
+
+      const n = Math.min(predB.length, measLoop.B.length);
+      let meanB = 0;
+      for (let i = 0; i < n; i++) meanB += measLoop.B[i];
+      meanB /= n;
+
+      let ssRes = 0, ssTot = 0;
+      for (let i = 0; i < n; i++) {
+        const err = measLoop.B[i] - predB[i];
+        ssRes += err * err;
+        const dev = measLoop.B[i] - meanB;
+        ssTot += dev * dev;
+      }
+      const rmse = Math.sqrt(ssRes / n);
+      const r2 = ssTot > 0 ? 1 - ssRes / ssTot : 1;
+
+      return {
+        H: measLoop.H.slice(),
+        B: predB,
+        hMin,
+        hMax,
+        rmse,
+        r2
+      };
+    }
+
+    // Viridis-like perceptual colormap
+    function colorMap(t) {
+      t = Math.max(0, Math.min(1, t));
+      const stops = [
+        [68, 1, 84],
+        [59, 82, 139],
+        [33, 145, 140],
+        [94, 201, 98],
+        [253, 231, 37]
+      ];
+      const x = t * (stops.length - 1);
+      const idx = Math.min(stops.length - 2, Math.floor(x));
+      const frac = x - idx;
+      const c0 = stops[idx], c1 = stops[idx + 1];
+      const r = Math.round(c0[0] + frac * (c1[0] - c0[0]));
+      const g = Math.round(c0[1] + frac * (c1[1] - c0[1]));
+      const b = Math.round(c0[2] + frac * (c1[2] - c0[2]));
+      return `rgb(${r},${g},${b})`;
+    }
+
+    function prepCanvas(canvas) {
+      const rect = canvas.getBoundingClientRect();
+      const dpr = window.devicePixelRatio || 1;
+      canvas.width = Math.round(rect.width * dpr);
+      canvas.height = Math.round(rect.height * dpr);
+      const ctx = canvas.getContext('2d');
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      return { ctx, w: rect.width, h: rect.height };
+    }
+
+    function drawDensityMap(hmin, hmax) {
+      const { ctx, w, h } = prepCanvas(mapCanvas);
+      const { g, Nc, rho_invAm } = model;
+      const showGrid = chkGrid.checked;
+
+      const pad = { l: 54, r: 64, t: 18, b: 44 };
+      const plotSize = Math.min(w - pad.l - pad.r, h - pad.t - pad.b);
+      const ox = pad.l + 0.5 * ((w - pad.l - pad.r) - plotSize);
+      const oy = pad.t + 0.5 * ((h - pad.t - pad.b) - plotSize);
+
+      const gMin = g[0], gMax = g[g.length - 1];
+      const toX = (beta)  => ox + ((beta  - gMin) / (gMax - gMin)) * plotSize;
+      const toY = (alpha) => oy + plotSize - ((alpha - gMin) / (gMax - gMin)) * plotSize;
+
+      // Find max density
+      let maxRho = 0;
+      for (let i = 0; i < Nc; i++)
+        for (let j = 0; j <= i; j++)
+          if (rho_invAm[i][j] > maxRho) maxRho = rho_invAm[i][j];
+      maxRho = Math.max(maxRho, 1e-12);
+
+      // Draw cells (rectangles for i > j, right triangles for i == j)
+      for (let i = 0; i < Nc; i++) {
+        for (let j = 0; j <= i; j++) {
+          ctx.fillStyle = colorMap(rho_invAm[i][j] / maxRho);
+          ctx.beginPath();
+          if (i === j) {
+            ctx.moveTo(toX(g[j]),     toY(g[i]));
+            ctx.lineTo(toX(g[j]),     toY(g[i + 1]));
+            ctx.lineTo(toX(g[j + 1]), toY(g[i + 1]));
+          } else {
+            ctx.moveTo(toX(g[j]),     toY(g[i]));
+            ctx.lineTo(toX(g[j]),     toY(g[i + 1]));
+            ctx.lineTo(toX(g[j + 1]), toY(g[i + 1]));
+            ctx.lineTo(toX(g[j + 1]), toY(g[i]));
+          }
+          ctx.closePath();
+          ctx.fill();
+          if (showGrid) {
+            ctx.strokeStyle = 'rgba(255,255,255,0.28)';
+            ctx.lineWidth = 0.7;
+            ctx.stroke();
+          }
+        }
+      }
+
+      // Apply mask over +- polarized (non-switching) hysterons outside [H_min, H_max]
+      ctx.save();
+      ctx.beginPath();
+      // Full Preisach triangle (gMin <= beta <= alpha <= gMax)
+      ctx.moveTo(toX(gMin), toY(gMin));
+      ctx.lineTo(toX(gMin), toY(gMax));
+      ctx.lineTo(toX(gMax), toY(gMax));
+      ctx.closePath();
+      // Cutout: Active switching triangle (hmin <= beta <= alpha <= hmax)
+      ctx.moveTo(toX(hmin), toY(hmin));
+      ctx.lineTo(toX(hmin), toY(hmax));
+      ctx.lineTo(toX(hmax), toY(hmax));
+      ctx.closePath();
+
+      // Frosted translucent veil over +- polarized region
+      ctx.fillStyle = 'rgba(241, 245, 249, 0.78)';
+      ctx.fill('evenodd');
+
+      // Subtle diagonal hatch inside masked region
+      ctx.clip('evenodd');
+      ctx.strokeStyle = 'rgba(100, 116, 139, 0.22)';
+      ctx.lineWidth = 1;
+      for (let d = -plotSize; d <= 2 * plotSize; d += 9) {
+        ctx.beginPath();
+        ctx.moveTo(ox + d, oy);
+        ctx.lineTo(ox + d - plotSize, oy + plotSize);
+        ctx.stroke();
+      }
+      ctx.restore();
+
+      // Label +1 polarized zone (alpha < H_min) and -1 polarized zone (beta > H_max)
+      ctx.save();
+      ctx.font = 'bold 11px sans-serif';
+      ctx.fillStyle = 'rgba(30, 41, 59, 0.75)';
+      ctx.textAlign = 'center';
+      const posSpan = toX(hmin) - toX(gMin);
+      if (posSpan > 34) {
+        ctx.fillText('+1 polarized', toX(gMin) + posSpan * 0.34, toY(gMin) - posSpan * 0.20);
+      }
+      const negSpan = toX(gMax) - toX(hmax);
+      if (negSpan > 34) {
+        ctx.fillText('−1 polarized', toX(hmax) + negSpan * 0.66, toY(gMax) + negSpan * 0.28);
+      }
+      ctx.restore();
+
+      // Highlight hovered cell
+      if (hoveredCell) {
+        const { i, j } = hoveredCell;
+        ctx.strokeStyle = '#111827';
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        if (i === j) {
+          ctx.moveTo(toX(g[j]),     toY(g[i]));
+          ctx.lineTo(toX(g[j]),     toY(g[i + 1]));
+          ctx.lineTo(toX(g[j + 1]), toY(g[i + 1]));
+        } else {
+          ctx.rect(toX(g[j]), toY(g[i + 1]), toX(g[j + 1]) - toX(g[j]), toY(g[i]) - toY(g[i + 1]));
+        }
+        ctx.closePath();
+        ctx.stroke();
+      }
+
+      // Main diagonal dashed line (alpha = beta)
+      ctx.save();
+      ctx.setLineDash([5, 4]);
+      ctx.strokeStyle = '#1f2937';
+      ctx.lineWidth = 1.2;
+      ctx.beginPath();
+      ctx.moveTo(toX(gMin), toY(gMin));
+      ctx.lineTo(toX(gMax), toY(gMax));
+      ctx.stroke();
+      ctx.restore();
+
+      // Active [H_min, H_max] sweep triangle overlay
+      ctx.strokeStyle = '#dc2626';
+      ctx.lineWidth = 2.2;
+      ctx.beginPath();
+      ctx.moveTo(toX(hmin), toY(hmin));
+      ctx.lineTo(toX(hmin), toY(hmax));
+      ctx.lineTo(toX(hmax), toY(hmax));
+      ctx.closePath();
+      ctx.stroke();
+
+      for (const hv of [hmin, hmax]) {
+        ctx.fillStyle = '#dc2626';
+        ctx.beginPath();
+        ctx.arc(toX(hv), toY(hv), 4.5, 0, 2 * Math.PI);
+        ctx.fill();
+      }
+
+      // Outer frame
+      ctx.strokeStyle = '#94a3b8';
+      ctx.lineWidth = 1;
+      ctx.strokeRect(ox, oy, plotSize, plotSize);
+
+      // Axes ticks & labels
+      ctx.fillStyle = '#334155';
+      ctx.font = '11px sans-serif';
+      ctx.textAlign = 'center';
+      const ticks = [gMin, 0.5 * gMin, 0, 0.5 * gMax, gMax];
+      for (const tv of ticks) {
+        const px = toX(tv), py = toY(tv);
+        ctx.fillText(Math.round(tv), px, oy + plotSize + 16);
+        ctx.textAlign = 'right';
+        ctx.fillText(Math.round(tv), ox - 6, py + 4);
+        ctx.textAlign = 'center';
+      }
+      ctx.font = 'bold 12px sans-serif';
+      ctx.fillText('β [A/m]', ox + 0.5 * plotSize, oy + plotSize + 36);
+      ctx.save();
+      ctx.translate(15, oy + 0.5 * plotSize);
+      ctx.rotate(-Math.PI / 2);
+      ctx.fillText('α [A/m]', 0, 0);
+      ctx.restore();
+
+      // Colorbar
+      const cbX = ox + plotSize + 12, cbW = 14;
+      for (let py = 0; py < plotSize; py++) {
+        ctx.fillStyle = colorMap(1 - py / plotSize);
+        ctx.fillRect(cbX, oy + py, cbW, 1.5);
+      }
+      ctx.strokeStyle = '#94a3b8';
+      ctx.strokeRect(cbX, oy, cbW, plotSize);
+      ctx.font = '10.5px sans-serif';
+      ctx.textAlign = 'left';
+      ctx.fillText(maxRho.toFixed(1), cbX + cbW + 4, oy + 9);
+      ctx.fillText((0.5 * maxRho).toFixed(1), cbX + cbW + 4, oy + 0.5 * plotSize + 4);
+      ctx.fillText('0', cbX + cbW + 4, oy + plotSize);
+
+      mapCanvas._geom = { ox, oy, plotSize, gMin, gMax };
+    }
+
+    function drawLoopPlot(H, B, hmin, hmax) {
+      const { ctx, w, h } = prepCanvas(loopCanvas);
+      const pad = { l: 58, r: 22, t: 20, b: 44 };
+      const pw = w - pad.l - pad.r;
+      const ph = h - pad.t - pad.b;
+
+      const activeMeas = bhDataset ? bhDataset.loops[selectedBhIdx] : null;
+
+      let hLim, bLim;
+      if (bhDataset) {
+        // Locked XY scales for uploaded waveforms
+        hLim = bhDataset.lockedHLim;
+        bLim = bhDataset.lockedBLim;
+      } else {
+        hLim = 1.08 * Math.max(Math.abs(model.g[0]), Math.abs(model.g[model.g.length - 1]));
+        bLim = model._fullBLim || 1.2;
+
+        if (!chkLock.checked) {
+          hLim = Math.max(20, 1.15 * Math.max(Math.abs(hmin), Math.abs(hmax)));
+          let bPk = 0.05;
+          for (let i = 0; i < B.length; i++) if (Math.abs(B[i]) > bPk) bPk = Math.abs(B[i]);
+          bLim = 1.18 * bPk;
+        }
+      }
+
+      const toX = (hv) => pad.l + ((hv + hLim) / (2 * hLim)) * pw;
+      const toY = (bv) => pad.t + ph - ((bv + bLim) / (2 * bLim)) * ph;
+
+      // Grid lines
+      ctx.strokeStyle = '#e2e8f0';
+      ctx.lineWidth = 1;
+      for (let k = -4; k <= 4; k++) {
+        const gx = toX((k / 4) * hLim);
+        const gy = toY((k / 4) * bLim);
+        ctx.beginPath(); ctx.moveTo(gx, pad.t); ctx.lineTo(gx, pad.t + ph); ctx.stroke();
+        ctx.beginPath(); ctx.moveTo(pad.l, gy); ctx.lineTo(pad.l + pw, gy); ctx.stroke();
+      }
+
+      // Zero axes
+      ctx.strokeStyle = '#94a3b8';
+      ctx.lineWidth = 1.2;
+      ctx.beginPath(); ctx.moveTo(toX(0), pad.t); ctx.lineTo(toX(0), pad.t + ph); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(pad.l, toY(0)); ctx.lineTo(pad.l + pw, toY(0)); ctx.stroke();
+
+      // Uploaded measured B-H curve
+      if (activeMeas && activeMeas.H.length > 1) {
+        ctx.save();
+        ctx.strokeStyle = '#16a34a';
+        ctx.lineWidth = 2.2;
+        ctx.setLineDash([5, 3]);
+        ctx.beginPath();
+        for (let i = 0; i < activeMeas.H.length; i++) {
+          const px = toX(activeMeas.H[i]), py = toY(activeMeas.B[i]);
+          if (i === 0) ctx.moveTo(px, py); else ctx.lineTo(px, py);
+        }
+        ctx.stroke();
+        ctx.restore();
+      }
+
+      // Predicted B-H curve
+      ctx.strokeStyle = '#2563eb';
+      ctx.lineWidth = 2.4;
+      ctx.beginPath();
+      for (let i = 0; i < H.length; i++) {
+        const px = toX(H[i]), py = toY(B[i]);
+        if (i === 0) ctx.moveTo(px, py); else ctx.lineTo(px, py);
+      }
+      ctx.stroke();
+
+      // Loop direction arrowheads (for free-slider generated loops)
+      if (!bhDataset && H.length > 380) {
+        const drawArrow = (i1, i2) => {
+          const x1 = toX(H[i1]), y1 = toY(B[i1]);
+          const x2 = toX(H[i2]), y2 = toY(B[i2]);
+          const ang = Math.atan2(y2 - y1, x2 - x1);
+          ctx.fillStyle = '#1d4ed8';
+          ctx.beginPath();
+          ctx.moveTo(x2, y2);
+          ctx.lineTo(x2 - 9 * Math.cos(ang - 0.42), y2 - 9 * Math.sin(ang - 0.42));
+          ctx.lineTo(x2 - 9 * Math.cos(ang + 0.42), y2 - 9 * Math.sin(ang + 0.42));
+          ctx.closePath();
+          ctx.fill();
+        };
+        drawArrow(120, 126);
+        drawArrow(370, 376);
+
+        for (const idx of [0, 249]) {
+          ctx.fillStyle = '#dc2626';
+          ctx.beginPath();
+          ctx.arc(toX(H[idx]), toY(B[idx]), 4.5, 0, 2 * Math.PI);
+          ctx.fill();
+        }
+      }
+
+      ctx.strokeStyle = '#94a3b8';
+      ctx.lineWidth = 1;
+      ctx.strokeRect(pad.l, pad.t, pw, ph);
+
+      // Tick labels
+      ctx.fillStyle = '#334155';
+      ctx.font = '11px sans-serif';
+      for (let k = -2; k <= 2; k++) {
+        const hv = (k / 2) * hLim;
+        const bv = (k / 2) * bLim;
+        ctx.textAlign = 'center';
+        ctx.fillText(Math.round(hv), toX(hv), pad.t + ph + 16);
+        ctx.textAlign = 'right';
+        ctx.fillText(bv.toFixed(2), pad.l - 6, toY(bv) + 4);
+      }
+      ctx.font = 'bold 12px sans-serif';
+      ctx.textAlign = 'center';
+      ctx.fillText('Magnetic Field H [A/m]', pad.l + 0.5 * pw, pad.t + ph + 36);
+      ctx.save();
+      ctx.translate(15, pad.t + 0.5 * ph);
+      ctx.rotate(-Math.PI / 2);
+      ctx.fillText('Flux Density B [T]', 0, 0);
+      ctx.restore();
+    }
+
+    function setSlidersLocked(locked) {
+      slHmin.disabled = locked;
+      slHmax.disabled = locked;
+      numHmin.disabled = locked;
+      numHmax.disabled = locked;
+      chkLock.disabled = locked;
+      if (locked) chkLock.checked = true;
+      controlsPanel.classList.toggle('locked', locked);
+      document.querySelectorAll('.preset-btn[data-preset]').forEach((btn) => {
+        btn.disabled = locked;
+      });
+    }
+
+    function recomputeLockedWaveformBounds() {
+      if (!bhDataset || !model) return;
+      let maxH = 10;
+      let maxB = 0.05;
+      for (const lp of bhDataset.loops) {
+        for (let i = 0; i < lp.H.length; i++) {
+          if (Math.abs(lp.H[i]) > maxH) maxH = Math.abs(lp.H[i]);
+          if (Math.abs(lp.B[i]) > maxB) maxB = Math.abs(lp.B[i]);
+        }
+        const pred = predictUploadedWaveform(lp);
+        for (let i = 0; i < pred.B.length; i++) {
+          if (Math.abs(pred.B[i]) > maxB) maxB = Math.abs(pred.B[i]);
+        }
+      }
+      bhDataset.lockedHLim = 1.12 * maxH;
+      bhDataset.lockedBLim = 1.15 * maxB;
+    }
+
+    function updateAll(source) {
+      if (!model) return;
+      const gMin = model.g[0];
+      const gMax = model.g[model.g.length - 1];
+
+      let hmin, hmax;
+
+      if (bhDataset && bhDataset.loops[selectedBhIdx]) {
+        // Locked waveform mode
+        const measLoop = bhDataset.loops[selectedBhIdx];
+        const res = predictUploadedWaveform(measLoop);
+        lastPred = { H: res.H, B: res.B };
+
+        hmin = Math.max(gMin, Math.min(gMax, res.hMin));
+        hmax = Math.max(gMin, Math.min(gMax, res.hMax));
+        slHmin.value  = hmin;
+        slHmax.value  = hmax;
+        numHmin.value = res.hMin.toFixed(1);
+        numHmax.value = res.hMax.toFixed(1);
+
+        bhFitBadge.textContent = `R² = ${res.r2.toFixed(4)} • RMSE = ${(res.rmse * 1000).toFixed(2)} mT`;
+      } else {
+        // Free slider mode
+        const gap = Math.max(0.5, 0.01 * (gMax - gMin));
+        hmin = parseFloat(source === 'numMin' ? numHmin.value : slHmin.value);
+        hmax = parseFloat(source === 'numMax' ? numHmax.value : slHmax.value);
+        if (!Number.isFinite(hmin)) hmin = 0.5 * gMin;
+        if (!Number.isFinite(hmax)) hmax = 0.5 * gMax;
+
+        hmin = Math.max(gMin, Math.min(gMax - gap, hmin));
+        hmax = Math.max(gMin + gap, Math.min(gMax, hmax));
+
+        if (hmin >= hmax - gap) {
+          if (source && source.toLowerCase().includes('min')) {
+            hmax = Math.min(gMax, hmin + gap);
+            hmin = hmax - gap;
+          } else {
+            hmin = Math.max(gMin, hmax - gap);
+            hmax = hmin + gap;
+          }
+        }
+
+        slHmin.value  = hmin;
+        slHmax.value  = hmax;
+        numHmin.value = hmin.toFixed(1);
+        numHmax.value = hmax.toFixed(1);
+
+        lastPred = predictCustomLoop(hmin, hmax);
+      }
+
+      const { H, B } = lastPred;
+
+      let bMin = Infinity, bMax = -Infinity, area = 0;
+      for (let i = 0; i < B.length; i++) {
+        if (B[i] < bMin) bMin = B[i];
+        if (B[i] > bMax) bMax = B[i];
+        if (i > 0) area += 0.5 * (B[i] + B[i - 1]) * (H[i] - H[i - 1]);
+      }
+
+      document.getElementById('mBmin').textContent = `${(bMin * 1000).toFixed(1)} mT`;
+      document.getElementById('mBmax').textContent = `${(bMax * 1000).toFixed(1)} mT`;
+      document.getElementById('mDb').textContent   = `${((bMax - bMin) * 1000).toFixed(1)} mT`;
+      document.getElementById('mLoss').textContent = `${Math.abs(area).toFixed(1)} J/m³`;
+
+      drawDensityMap(hmin, hmax);
+      drawLoopPlot(H, B, hmin, hmax);
+    }
+
+    function applyModel(raw, sourceLabel, isUserUpload = false) {
+      if (isUserUpload) userLoadedMaterial = true;
+      model = normalizeModel(raw);
+      const gMin = model.g[0];
+      const gMax = model.g[model.g.length - 1];
+      const step = Number(((gMax - gMin) / 400).toPrecision(2)) || 0.5;
+
+      // Compute full-range B limit once for locked-axis mode
+      const fullLoop = predictCustomLoop(gMin, gMax);
+      let bPeak = 0.05;
+      for (const b of fullLoop.B) if (Math.abs(b) > bPeak) bPeak = Math.abs(b);
+      model._fullBLim = 1.15 * bPeak;
+
+      slHmin.min = gMin; slHmin.max = gMax; slHmin.step = step;
+      slHmax.min = gMin; slHmax.max = gMax; slHmax.step = step;
+      numHmin.min = gMin; numHmin.max = gMax; numHmin.step = step;
+      numHmax.min = gMin; numHmax.max = gMax; numHmax.step = step;
+
+      slHmin.value = (0.5 * gMin).toFixed(1);
+      slHmax.value = (0.5 * gMax).toFixed(1);
+
+      document.getElementById('pageTitle').textContent = `${model.material} — Preisach Loop Predictor`;
+      document.getElementById('statusPill').textContent =
+        `${sourceLabel} (${model.Nc}×${model.Nc} grid, ±${Math.round(Math.max(Math.abs(gMin), Math.abs(gMax)))} A/m)`;
+
+      if (bhDataset) {
+        recomputeLockedWaveformBounds();
+      }
+      updateAll('init');
+      requestAnimationFrame(() => updateAll('init'));
+    }
+
+    function applyBhDataset(raw) {
+      bhDataset = normalizeBhDataset(raw);
+      selectedBhIdx = 0;
+
+      bhLoopSelect.innerHTML = '';
+      bhDataset.loops.forEach((lp, idx) => {
+        const opt = document.createElement('option');
+        opt.value = idx;
+        opt.textContent = lp.label;
+        bhLoopSelect.appendChild(opt);
+      });
+
+      recomputeLockedWaveformBounds();
+      setSlidersLocked(true);
+      waveformBar.classList.add('active');
+      bhLegend.style.display = 'inline-flex';
+      updateAll('bhLoad');
+    }
+
+    function exitUploadedWaveforms() {
+      bhDataset = null;
+      selectedBhIdx = 0;
+      waveformBar.classList.remove('active');
+      bhLegend.style.display = 'none';
+      bhFitBadge.textContent = '';
+      setSlidersLocked(false);
+      updateAll('freeSliders');
+    }
+
+    // Hover inspection on the Preisach density map
+    mapCanvas.addEventListener('mousemove', (e) => {
+      if (!model || !mapCanvas._geom) return;
+      const rect = mapCanvas.getBoundingClientRect();
+      const mx = e.clientX - rect.left;
+      const my = e.clientY - rect.top;
+      const { ox, oy, plotSize, gMin, gMax } = mapCanvas._geom;
+
+      const beta  = gMin + ((mx - ox) / plotSize) * (gMax - gMin);
+      const alpha = gMin + ((oy + plotSize - my) / plotSize) * (gMax - gMin);
+
+      if (beta < gMin || beta > gMax || alpha < gMin || alpha > gMax || alpha < beta) {
+        if (hoveredCell) {
+          hoveredCell = null;
+          tooltip.style.display = 'none';
+          drawDensityMap(parseFloat(slHmin.value), parseFloat(slHmax.value));
+        }
+        return;
+      }
+
+      const { g, Nc, W_Am, rho_invAm } = model;
+      let i = -1, j = -1;
+      for (let k = 0; k < Nc; k++) {
+        if (alpha >= g[k] && alpha <= g[k + 1]) i = k;
+        if (beta  >= g[k] && beta  <= g[k + 1]) j = k;
+      }
+      if (i >= 0 && j >= 0 && j <= i) {
+        hoveredCell = { i, j };
+        const hmin = parseFloat(slHmin.value);
+        const hmax = parseFloat(slHmax.value);
+        const aMid = 0.5 * (g[i] + g[i + 1]);
+        const bMid = 0.5 * (g[j] + g[j + 1]);
+        let stateLabel = 'Active (Switching)';
+        if (aMid < hmin) stateLabel = 'Masked (+1 Polarized)';
+        else if (bMid > hmax) stateLabel = 'Masked (−1 Polarized)';
+        else if (aMid > hmax && bMid < hmin) stateLabel = (aMid + bMid < 0) ? 'Masked (+1 Locked)' : 'Masked (−1 Locked)';
+
+        tooltip.style.display = 'block';
+        tooltip.style.left = `${Math.min(rect.width - 205, mx + 12)}px`;
+        tooltip.style.top  = `${Math.max(8, my - 70)}px`;
+        tooltip.innerHTML =
+          `<b>${i === j ? 'Diagonal Triangle' : 'Interior Rectangle'}</b> (${stateLabel})<br>` +
+          `&alpha;: [${g[i].toFixed(1)}, ${g[i + 1].toFixed(1)}] A/m<br>` +
+          `&beta;: [${g[j].toFixed(1)}, ${g[j + 1].toFixed(1)}] A/m<br>` +
+          `Weight W<sub>ij</sub>: <b>${W_Am[i][j].toFixed(2)} A/m</b><br>` +
+          `Density &rho;<sub>ij</sub>: <b>${rho_invAm[i][j].toFixed(3)} (A/m)<sup>&minus;1</sup></b>`;
+        drawDensityMap(hmin, hmax);
+      }
+    });
+
+    mapCanvas.addEventListener('mouseleave', () => {
+      hoveredCell = null;
+      tooltip.style.display = 'none';
+      if (model) drawDensityMap(parseFloat(slHmin.value), parseFloat(slHmax.value));
+    });
+
+    // Slider, numeric box, preset, and waveform listeners
+    slHmin.addEventListener('input',  () => updateAll('slMin'));
+    slHmax.addEventListener('input',  () => updateAll('slMax'));
+    numHmin.addEventListener('change', () => updateAll('numMin'));
+    numHmax.addEventListener('change', () => updateAll('numMax'));
+    chkGrid.addEventListener('change', () => updateAll());
+    chkLock.addEventListener('change', () => updateAll());
+
+    bhLoopSelect.addEventListener('change', () => {
+      selectedBhIdx = Number(bhLoopSelect.value) || 0;
+      updateAll('bhSelect');
+    });
+
+    document.getElementById('btnFreeSliders').addEventListener('click', exitUploadedWaveforms);
+
+    document.querySelectorAll('.preset-btn[data-preset]').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        if (bhDataset) return;
+        const gMin = model.g[0], gMax = model.g[model.g.length - 1];
+        const p = btn.dataset.preset;
+        if (p === 'sym100') { slHmin.value = gMin;        slHmax.value = gMax; }
+        if (p === 'sym50')  { slHmin.value = 0.5 * gMin;  slHmax.value = 0.5 * gMax; }
+        if (p === 'sym25')  { slHmin.value = 0.25 * gMin; slHmax.value = 0.25 * gMax; }
+        if (p === 'bias')   { slHmin.value = 0.10 * gMax; slHmax.value = 0.75 * gMax; }
+        updateAll('preset');
+      });
+    });
+
+    // File upload & drag-and-drop loader
+    function loadJsonFile(file, forcedType = null) {
+      const reader = new FileReader();
+      reader.onload = (ev) => {
+        try {
+          const parsed = JSON.parse(ev.target.result);
+          const isBh = forcedType === 'bh' ||
+            (!forcedType && !Array.isArray(parsed.g) && (Array.isArray(parsed.loops) || (Array.isArray(parsed.H) && Array.isArray(parsed.B))));
+          if (isBh) {
+            applyBhDataset(parsed);
+          } else {
+            applyModel(parsed, `Loaded: ${file.name}`, true);
+          }
+        } catch (err) {
+          alert('Invalid JSON file: ' + err.message);
+        }
+      };
+      reader.readAsText(file);
+    }
+
+    document.getElementById('btnLoadMat').addEventListener('click', () => {
+      const inp = document.getElementById('fileInput');
+      inp.value = '';
+      inp.click();
+    });
+
+    document.getElementById('fileInput').addEventListener('change', (e) => {
+      if (e.target.files[0]) loadJsonFile(e.target.files[0], 'material');
+    });
+
+    document.getElementById('btnLoadBh').addEventListener('click', () => {
+      const inp = document.getElementById('bhFileInput');
+      inp.value = '';
+      inp.click();
+    });
+
+    document.getElementById('bhFileInput').addEventListener('change', (e) => {
+      if (e.target.files[0]) loadJsonFile(e.target.files[0], 'bh');
+    });
+
+    window.addEventListener('dragover', (e) => {
+      e.preventDefault();
+      document.getElementById('dropOverlay').style.display = 'flex';
+    });
+    window.addEventListener('dragleave', (e) => {
+      if (e.relatedTarget === null) document.getElementById('dropOverlay').style.display = 'none';
+    });
+    window.addEventListener('drop', (e) => {
+      e.preventDefault();
+      document.getElementById('dropOverlay').style.display = 'none';
+      for (const file of e.dataTransfer.files) {
+        loadJsonFile(file);
+      }
+    });
+
+    // Export predicted B-H loop as CSV
+    document.getElementById('btnExportCsv').addEventListener('click', () => {
+      if (!lastPred.H.length) return;
+      let csv = 'H_Am,B_T\n';
+      for (let i = 0; i < lastPred.H.length; i++) {
+        csv += `${lastPred.H[i].toFixed(4)},${lastPred.B[i].toFixed(6)}\n`;
+      }
+      const blob = new Blob([csv], { type: 'text/csv' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `predicted_BH_${Math.round(slHmin.value)}_to_${Math.round(slHmax.value)}_Am.csv`;
+      a.click();
+      URL.revokeObjectURL(url);
+    });
+
+    window.addEventListener('resize', () => { if (model) updateAll(); });
+
+    // Auto-fetch ./preisach_grid.json on GitHub Pages; fallback to demo if absent
+    fetch('./preisach_grid.json')
+      .then((res) => {
+        if (!res.ok) throw new Error('No default JSON found');
+        return res.json();
+      })
+      .then((json) => {
+        if (!userLoadedMaterial) applyModel(json, 'Auto-loaded preisach_grid.json', false);
+      })
+      .catch(() => {
+        if (!userLoadedMaterial) applyModel(buildDemoModel(), 'Built-in Demo', false);
+      });
+  </script>
+</body>
+</html>
